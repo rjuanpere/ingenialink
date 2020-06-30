@@ -242,7 +242,7 @@ static int net_recv(il_mcb_net_t *this, uint8_t subnode, uint16_t address, uint8
 	
 
 	Sleep(5);
-	
+
 	int timeout = 1000;
 	osal_timespec_t start = { 0, 0 }, end, diff;
 	if (timeout > 0) {
@@ -254,10 +254,13 @@ static int net_recv(il_mcb_net_t *this, uint8_t subnode, uint16_t address, uint8
 
 	double time_s = 0;
 	time_s = (double) timeout / 1000;
+
+	int iterations = 0;
 	/* read next frame */
 	while (block_sz < 14) {
 		osal_clock_gettime(&diff);
 		if (diff.s > start.s + time_s) {
+			printf("Receive Operation timed out");
 			ilerr__set("Receive Operation timed out");
  			return IL_ETIMEDOUT;
 		}
@@ -276,7 +279,8 @@ static int net_recv(il_mcb_net_t *this, uint8_t subnode, uint16_t address, uint8
 			block_sz += chunk_sz;
 			pBuf += block_sz;
 		}
-		printf("Reading! Actual block size = %i\n", block_sz);
+		iterations++;
+		printf("Reading! Iteration = %i, Actual block size = %i\n", iterations, block_sz);
 	}
 
 	/* process frame: validate CRC, address, ACK */
@@ -530,6 +534,7 @@ static int il_mcb_net_connect(il_net_t *net)
 		ilerr__set("Listener thread creation failed");
 		// goto close_ser;
 	}
+	//osal_thread_join(this->listener, NULL);
 
 	return 0;
 }
