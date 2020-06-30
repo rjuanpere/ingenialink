@@ -239,9 +239,28 @@ static int net_recv(il_mcb_net_t *this, uint8_t subnode, uint16_t address, uint8
 	uint16_t crc, hdr_l;
 	uint8_t *pBuf = (uint8_t*) &frame;
 
+	
+
 	Sleep(5);
+	
+	int timeout = 1000;
+	osal_timespec_t start = { 0, 0 }, end, diff;
+	if (timeout > 0) {
+		if (osal_clock_gettime(&start) < 0) {
+			ilerr__set("Could not obtain system time");
+			return IL_EFAIL;
+		}
+	}
+
+	double time_s = 0;
+	time_s = (double) timeout / 1000;
 	/* read next frame */
 	while (block_sz < 14) {
+		osal_clock_gettime(&diff);
+		if (diff.s > start.s + time_s) {
+			ilerr__set("Receive Operation timed out");
+ 			return IL_ETIMEDOUT;
+		}
 		int r;
 		size_t chunk_sz;
 		
@@ -257,6 +276,7 @@ static int net_recv(il_mcb_net_t *this, uint8_t subnode, uint16_t address, uint8
 			block_sz += chunk_sz;
 			pBuf += block_sz;
 		}
+		printf("Reading! Actual block size = %i\n", block_sz);
 	}
 
 	/* process frame: validate CRC, address, ACK */
