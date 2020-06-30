@@ -142,32 +142,32 @@ int listener_mcb(void *args)
 	uint16_t buf = 0;
 
 
-	il_mcb_net_t *this = to_mcb_net(args);
-	while(1) {
-		osal_mutex_lock(this->net.lock);
-			
-		r = net_send(this, 1, 0x0011, NULL, 0);
-		if (r < 0)
-			goto unlock;
-		r = net_recv(this, 1, 0x0011, &buf, 4);
+	//il_mcb_net_t *this = to_mcb_net(args);
+	//while(1) {
+	//	osal_mutex_lock(this->net.lock);
+	//		
+	//	r = net_send(this, 1, 0x0011, NULL, 0);
+	//	if (r < 0)
+	//		goto unlock;
+	//	r = net_recv(this, 1, 0x0011, &buf, 4);
 
-		unlock:
-			osal_mutex_unlock(this->net.lock);
+	//	unlock:
+	//		osal_mutex_unlock(this->net.lock);
 
-			r = buf;
-			process_statusword(this, 1, buf);
-			// printf("%d\n", buf);
-			Sleep(200);
-	}
+	//		r = buf;
+	//		process_statusword(this, 1, buf);
+	//		// printf("%d\n", buf);
+	//		Sleep(200);
+	//}
 	
 
 	return 0;
 
- err:
- 	ser_close(this->ser);
- 	il_net__state_set(&this->net, IL_NET_STATE_FAULTY);
+ //err:
+ //	ser_close(this->ser);
+ //	il_net__state_set(&this->net, IL_NET_STATE_FAULTY);
 
- 	return IL_EFAIL;
+ //	return IL_EFAIL;
 }
 
 
@@ -255,7 +255,6 @@ static int net_recv(il_mcb_net_t *this, uint8_t subnode, uint16_t address, uint8
 	double time_s = 0;
 	time_s = (double) timeout / 1000;
 
-	int iterations = 0;
 	/* read next frame */
 	while (block_sz < 14) {
 		osal_clock_gettime(&diff);
@@ -279,8 +278,6 @@ static int net_recv(il_mcb_net_t *this, uint8_t subnode, uint16_t address, uint8
 			block_sz += chunk_sz;
 			pBuf += block_sz;
 		}
-		iterations++;
-		printf("Reading! Iteration = %i, Actual block size = %i\n", iterations, block_sz);
 	}
 
 	/* process frame: validate CRC, address, ACK */
