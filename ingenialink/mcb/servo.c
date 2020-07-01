@@ -476,8 +476,6 @@ static int il_mcb_servo_enable(il_servo_t *servo, int timeout)
 		r = il_mcb_servo_fault_reset(servo);
 		if (r < 0)
 			return r;
-
-		sw = sw_get(servo);
 	}
 	
 	sw = sw_get(servo);
