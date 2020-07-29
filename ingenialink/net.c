@@ -312,9 +312,9 @@ int il_net_master_stop(il_net_t **net)
 	return il_ecat_net_ops.master_stop(net);
 }
 
-int il_net_update_firmware(il_net_t **net, char *ifname, uint16_t slave, char *filename) 
+int il_net_update_firmware(il_net_t **net, char *ifname, uint16_t slave, char *filename, bool is_summit) 
 {
-	return il_ecat_net_ops.update_firmware(net, ifname, slave, filename);
+	return il_ecat_net_ops.update_firmware(net, ifname, slave, filename, is_summit);
 }
 
 int il_net_eeprom_tool(il_net_t **net, char *ifname, int slave, int mode, char *fname) 
@@ -372,8 +372,8 @@ il_net_dev_mon_t *il_net_dev_mon_create(il_net_prot_t prot)
 #ifdef IL_HAS_PROT_MCB
 	case IL_NET_PROT_MCB:
 		return il_mcb_net_dev_mon_ops.create();
-	// case IL_NET_PROT_ETH:
-	// 	return il_eth_net_dev_mon_ops.create(opts);
+	 case IL_NET_PROT_ETH:
+	 	return il_eth_net_dev_mon_ops.create();
 #endif
 	default:
 		ilerr__set("Unsupported network protocol");

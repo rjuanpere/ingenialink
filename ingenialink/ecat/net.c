@@ -631,10 +631,34 @@ static int il_ecat_net__read(il_net_t *net, uint16_t id, uint8_t subnode, uint32
 	if (r < 0) {
 		goto unlock;
 	}
-	uint16_t *monitoring_raw_data = NULL;
-	r = net_recv(this, subnode, (uint16_t)address, buf, sz, monitoring_raw_data, net);
-	if (r < 0)
+
+	int num_retries = 0;
+	while (num_retries < NUMBER_OP_RETRIES)
+	{
+		uint16_t *monitoring_raw_data = NULL;
+		r = net_recv(this, subnode, (uint16_t)address, buf, sz, monitoring_raw_data, net);
+		if (r == IL_ETIMEDOUT || r == IL_EWRONGREG) 
+		{
+			++num_retries;
+			printf("Frame lost, retry %i\n", num_retries);
+		}
+		else 
+		{
+			break;
+		}
+
+	}
+	
+	
+	if (r < 0) 
+	{
+		if (r == IL_ETIMEDOUT || r == IL_EWRONGREG)
+		{
+			
+		}
 		goto unlock;
+	}
+		
 
 unlock:
 	osal_mutex_unlock(this->net.lock);
@@ -659,9 +683,29 @@ static int il_ecat_net__write(il_net_t *net, uint16_t id, uint8_t subnode, uint3
 	if (r < 0)
 		goto unlock;
 
-	r = net_recv(this, subnode, (uint16_t)address, NULL, 0, NULL, NULL);
-	if (r < 0)
+	int num_retries = 0;
+	while (num_retries < NUMBER_OP_RETRIES)
+	{
+		r = net_recv(this, subnode, (uint16_t)address, NULL, 0, NULL, NULL);
+		if (r == IL_ETIMEDOUT || r == IL_EWRONGREG) 
+		{
+			++num_retries;
+			printf("Frame lost, retry %i\n", num_retries);
+		}
+		else 
+		{
+			break;
+		}
+	}
+
+	if (r < 0) 
+	{
+		if (r == IL_ETIMEDOUT || r == IL_EWRONGREG)
+		{
+
+		}
 		goto unlock;
+	}
 	
 unlock:
 	osal_mutex_unlock(this->net.lock);
@@ -688,9 +732,24 @@ static int il_ecat_net__wait_write(il_net_t *net, uint16_t id, uint8_t subnode, 
 
 	Sleep(1000);
 
-	r = net_recv(this, subnode, (uint16_t)address, NULL, 0, NULL, NULL);
-	if (r < 0)
+	int num_retries = 0;
+	while (num_retries < NUMBER_OP_RETRIES)
+	{
+		r = net_recv(this, subnode, (uint16_t)address, NULL, 0, NULL, NULL);
+		if (r == IL_ETIMEDOUT || r == IL_EWRONGREG) 
+		{
+			++num_retries;
+			printf("Frame lost, retry %i\n", num_retries);
+		}
+		else 
+		{
+			break;
+		}
+	}
+	if (r < 0) 
+	{
 		goto unlock;
+	}
 
 unlock:
 	osal_mutex_unlock(this->net.lock);
@@ -854,6 +913,14 @@ static int net_recv(il_ecat_net_t *this, uint8_t subnode, uint16_t address, uint
 		ilerr__set("Communications error (NACK -> %08x)", err);
 		return IL_EIO;
 	}
+
+	/* Check if register received is the same that we asked for.  */
+	if ((hdr_l >> 4) != address) 
+	{
+		return IL_EWRONGREG;
+	}
+
+
 	extended_bit = (hdr_l & ECAT_MCB_PENDING_MSK) >> ECAT_MCB_PENDING_POS;
 	if (extended_bit == 1) {
 		/* Check if we are reading monitoring data */
@@ -1252,7 +1319,7 @@ int *il_ecat_net_change_state(uint16_t slave, ec_state state)
 /**
  * Update Firmware using FoE
 */
-static int *il_ecat_net_update_firmware(il_net_t **net, char *ifname, uint16_t slave, char *filename) 
+static int *il_ecat_net_update_firmware(il_net_t **net, char *ifname, uint16_t slave, char *filename, bool is_summit) 
 {
 	printf(filename);
 	printf("Starting firmware update example\n");
@@ -1282,12 +1349,15 @@ static int *il_ecat_net_update_firmware(il_net_t **net, char *ifname, uint16_t s
 			}
 			else
 			{
-				printf("Writing COCO FORCE BOOT password through SDO\n");
-				uint32 u32val = 0x424F4F54;
-				if (ec_SDOwrite(slave, 0x5EDE, 0x00, FALSE, sizeof(u32val), &u32val, EC_TIMEOUTTXM) <= 0) 
+				if (!is_summit) 
 				{
-					printf("Force Boot error\n");
-					return UP_FORCE_BOOT_ERROR;
+					printf("Writing COCO FORCE BOOT password through SDO\n");
+					uint32 u32val = 0x424F4F54;
+					if (ec_SDOwrite(slave, 0x5EDE, 0x00, FALSE, sizeof(u32val), &u32val, EC_TIMEOUTTXM) <= 0) 
+					{
+						printf("Force Boot error\n");
+						return UP_FORCE_BOOT_ERROR;
+					}
 				}
 
 				printf("Request init state for slave %d\n", slave);
@@ -1298,7 +1368,7 @@ static int *il_ecat_net_update_firmware(il_net_t **net, char *ifname, uint16_t s
 				printf("Slave %d state to INIT.\n", slave);
 
 				printf("Request BOOT state for slave %d\n", slave);
-				if (il_ecat_net_change_state(slave, EC_STATE_BOOT) == UP_NOERROR) {
+				if (il_ecat_net_change_state(slave, EC_STATE_BOOT) == UP_NOERROR && !is_summit) {
 					printf("Slave %d entered into state BOOT. \n", slave);
 					printf("Force COCO Boot not applied correctly.\n");
 					return UP_STATEMACHINE_ERROR;
@@ -1378,7 +1448,6 @@ static int *il_ecat_net_update_firmware(il_net_t **net, char *ifname, uint16_t s
 				else 
 				{
 					printf("Error during FoE process...");
-					return r;
 				}
 				
 			}
@@ -1404,7 +1473,7 @@ static int *il_ecat_net_update_firmware(il_net_t **net, char *ifname, uint16_t s
 	printf("End firmware update, close socket\n");
 	/* stop SOEM, close socket */
 	ec_close();
-	return UP_NOERROR;
+	return r;
 }
 
 /**
