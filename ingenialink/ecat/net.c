@@ -387,7 +387,7 @@ static int il_ecat_net_reconnect(il_net_t *net)
     while (r < 0 && this->stop_reconnect == 0)
 	{
 		r2 = il_net_master_stop(&this->net);
-		r2 = il_net_master_startup(&this->net, this->ifname, this->if_address_ip);
+		r2 = il_net_master_startup(&this->net, this->ifname, this->address_ip, this->if_address_ip);
 		
 		if (r2 > 0)
 		{
@@ -1252,7 +1252,22 @@ int eoe_hook(ecx_contextt * context, uint16 slave, void * eoembx)
 	return ec_slavecount;
 }
 
-void init_eoe(il_net_t *net, ecx_contextt * context)
+int ipStringToNumber(const char* pDottedQuad, unsigned short* pBytes)
+{
+	char dummyString[2];
+
+	if (sscanf (pDottedQuad, "%u.%u.%u.%u%1s",
+			&pBytes[0], &pBytes[1], &pBytes[2], &pBytes[3], dummyString) == 4)
+	{
+		if ((pBytes[0] < 256) && (pBytes[1] < 256) && (pBytes[2] < 256) && (pBytes[3] < 256))
+		{
+			return 0;
+		}
+	}
+   	return -1;
+}
+
+void init_eoe(il_net_t *net, char *address_ip, char *if_address_ip, int slave, ecx_contextt * context)
 {
 	printf("Init EoE\n");
 	/* Set the HOOK */
@@ -1267,9 +1282,17 @@ void init_eoe(il_net_t *net, ecx_contextt * context)
 	ipsettings.subnet_set = 1;
 	ipsettings.default_gateway_set = 1;
 
-	EOE_IP4_ADDR_TO_U32(&ipsettings.ip, 192, 168, 2, 22);
+	int r = 0;
+	unsigned short address, if_address = 0;
+	unsigned short *pAddress = &address;
+	r = ipStringToNumber(address_ip, pAddress);
+
+	unsigned short *pIfAddress = &if_address;
+	r = ipStringToNumber(if_address_ip, pIfAddress);
+
+	EOE_IP4_ADDR_TO_U32(&ipsettings.ip, pAddress[0], pAddress[1], pAddress[2], pAddress[3]);
 	EOE_IP4_ADDR_TO_U32(&ipsettings.subnet, 255, 255, 255, 0);
-	EOE_IP4_ADDR_TO_U32(&ipsettings.default_gateway, 192, 168, 2, 1);
+	EOE_IP4_ADDR_TO_U32(&ipsettings.default_gateway, pIfAddress[0], pIfAddress[1], pIfAddress[2], pIfAddress[3]);
 
 	printf("IP configured\n");
 
@@ -1290,23 +1313,12 @@ int *il_ecat_net_set_if_params(il_net_t *net, char *ifname, char *if_address_ip)
 	this->if_address_ip = if_address_ip;
 }
 
-int *il_ecat_net_master_startup(il_net_t *net, char *ifname, char *if_address_ip)
+int *il_ecat_net_master_startup(il_net_t *net, char *ifname, char *address_ip, char* if_address_ip, int slave)
 {
 
 	int i, oloop, iloop, chk;
 	needlf = FALSE;
 	inOP = FALSE;
-
-	il_ecat_net_opts_t opts;
-	opts.address_ip = if_address_ip;
-	opts.timeout_rd = IL_NET_TIMEOUT_RD_DEF;
-	opts.timeout_wr = IL_NET_TIMEOUT_WR_DEF;
-	opts.connect_slave = 1;
-	opts.port_ip = 1061;
-	opts.port = "";
-	opts.ifname = ifname;
-	opts.if_address_ip = if_address_ip;
-
 
 	printf("Starting EtherCAT Master\n");
 	/* initialise SOEM, bind socket to ifname */
@@ -1320,35 +1332,35 @@ int *il_ecat_net_master_startup(il_net_t *net, char *ifname, char *if_address_ip
 
 			printf("Slaves mapped, state to PRE_OP.\n");
 			/* wait for all slaves to reach SAFE_OP state */
-			ec_statecheck(0, EC_STATE_PRE_OP, EC_TIMEOUTSTATE * 4);
+			ec_statecheck(slave, EC_STATE_PRE_OP, EC_TIMEOUTSTATE * 4);
 
 			printf("Calculated workcounter %d\n", expectedWKC);
-			ec_slave[0].state = EC_STATE_PRE_OP;
+			ec_slave[slave].state = EC_STATE_PRE_OP;
 
 			/* request OP state for all slaves */
-			ec_writestate(0);
+			ec_writestate(slave);
 			chk = 200;
 
 			/* wait for all slaves to reach OP state */
 			do
 			{
-				ec_statecheck(0, EC_STATE_PRE_OP, 50000);
-			} while (chk-- && (ec_slave[0].state != EC_STATE_PRE_OP));
-			if (ec_slave[0].state == EC_STATE_PRE_OP)
+				ec_statecheck(slave, EC_STATE_PRE_OP, 50000);
+			} while (chk-- && (ec_slave[slave].state != EC_STATE_PRE_OP));
+			if (ec_slave[slave].state == EC_STATE_PRE_OP)
 			{
 				printf("Pre-Operational state reached for all slaves.\n");
 			} else
 			{
 				printf("Not all slaves reached operational state.\n");
 				ec_readstate();
-				for (i = 1; i <= ec_slavecount; i++)
+				// for (i = 1; i <= ec_slavecount; i++)
+				// {
+				if (ec_slave[slave].state != EC_STATE_PRE_OP)
 				{
-					if (ec_slave[i].state != EC_STATE_PRE_OP)
-					{
-						printf("Not all slaves are in PRE-OP\n");
-						return -1;
-					}
+					printf("Not all slaves are in PRE-OP\n");
+					return -1;
 				}
+				// }
 			}
 		}
 		else
@@ -1356,7 +1368,7 @@ int *il_ecat_net_master_startup(il_net_t *net, char *ifname, char *if_address_ip
 			printf("No slaves found!\n");
 		}
 
-		init_eoe(net, &ecx_context);
+		init_eoe(net, address_ip, if_address_ip, slave, &ecx_context);
 		
 	}
 	else

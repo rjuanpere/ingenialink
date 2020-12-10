@@ -615,7 +615,7 @@ IL_EXPORT int il_net_close_socket(il_net_t *net);
 /**
 	SOEM
 */
-IL_EXPORT int il_net_master_startup(il_net_t **net, char *ifname, char *if_address_ip);
+IL_EXPORT int il_net_master_startup(il_net_t **net, char *ifname, char *address_ip, char *if_address_ip, uint16_t slaves);
 
 IL_EXPORT int il_net_num_slaves_get(il_net_t **net, char *ifname);
 
