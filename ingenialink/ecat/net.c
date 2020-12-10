@@ -387,7 +387,7 @@ static int il_ecat_net_reconnect(il_net_t *net)
     while (r < 0 && this->stop_reconnect == 0)
 	{
 		r2 = il_net_master_stop(&this->net);
-		r2 = il_net_master_startup(&this->net, this->ifname, this->address_ip, this->if_address_ip);
+		r2 = il_net_master_startup(&this->net, this->ifname, this->address_ip, this->if_address_ip, 1);
 		
 		if (r2 > 0)
 		{
@@ -1282,7 +1282,7 @@ void init_eoe(il_net_t *net, char *address_ip, char *if_address_ip, int slave, e
 	ipsettings.subnet_set = 1;
 	ipsettings.default_gateway_set = 1;
 
-	int r = 0;
+	/*int r = 0;
 	unsigned short address, if_address = 0;
 	unsigned short *pAddress = &address;
 	r = ipStringToNumber(address_ip, pAddress);
@@ -1292,7 +1292,11 @@ void init_eoe(il_net_t *net, char *address_ip, char *if_address_ip, int slave, e
 
 	EOE_IP4_ADDR_TO_U32(&ipsettings.ip, pAddress[0], pAddress[1], pAddress[2], pAddress[3]);
 	EOE_IP4_ADDR_TO_U32(&ipsettings.subnet, 255, 255, 255, 0);
-	EOE_IP4_ADDR_TO_U32(&ipsettings.default_gateway, pIfAddress[0], pIfAddress[1], pIfAddress[2], pIfAddress[3]);
+	EOE_IP4_ADDR_TO_U32(&ipsettings.default_gateway, pIfAddress[0], pIfAddress[1], pIfAddress[2], pIfAddress[3]);*/
+
+	EOE_IP4_ADDR_TO_U32(&ipsettings.ip, 192, 168, 2, 22);
+	EOE_IP4_ADDR_TO_U32(&ipsettings.subnet, 255, 255, 255, 0);
+	EOE_IP4_ADDR_TO_U32(&ipsettings.default_gateway, 192, 168, 2, 1);
 
 	printf("IP configured\n");
 
