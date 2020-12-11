@@ -307,6 +307,11 @@ int il_net_master_startup(il_net_t *net, char *ifname, char *address_ip, char *i
 	return il_ecat_net_ops.master_startup(net, ifname, address_ip, if_address_ip, slave);
 }
 
+int il_net_master_startup_old(il_net_t **net, char *ifname, const char *if_address_ip)
+{
+	return il_ecat_net_ops.master_startup_old(net, ifname, if_address_ip);
+}
+
 int il_net_num_slaves_get(il_net_t **net, char *ifname)
 {
 	return il_ecat_net_ops.num_slaves_get(net, ifname);

@@ -411,6 +411,7 @@ typedef struct {
 	int (*close_socket)();
 
 	int (*master_startup)();
+	int (*master_startup_old)();
 	int (*num_slaves_get)();
 	int (*master_stop)();
 	int (*update_firmware)();
