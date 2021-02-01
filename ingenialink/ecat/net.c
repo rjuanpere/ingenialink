@@ -831,40 +831,6 @@ static int il_ecat_net__read_monitoring(il_net_t *net, uint16_t id, uint8_t subn
 	}
 
 
-
-
-	// osal_mutex_lock(this->net.lock);
-	// r = net_send(this, subnode, (uint16_t)address, NULL, 0, 0, net);
-	// if (r < 0) {
-	// 	goto unlock;
-	// }
-
-	// int num_retries = 0;
-	// while (num_retries < NUMBER_OP_RETRIES)
-	// {
-	// 	uint16_t *monitoring_raw_data = NULL;
-	// 	r = il_ecat_net_recv_monitoring(this, subnode, (uint16_t)address, buf, sz, monitoring_raw_data, net);
-	// 	if (r == IL_ETIMEDOUT || r == IL_EWRONGREG) 
-	// 	{
-	// 		++num_retries;
-	// 		printf("Frame lost, retry %i\n", num_retries);
-	// 	}
-	// 	else 
-	// 	{
-	// 		break;
-	// 	}
-	// }
-
-	// if (r < 0) 
-	// {
-	// 	if (r == IL_ETIMEDOUT || r == IL_EWRONGREG)
-	// 	{
-			
-	// 	}
-	// 	goto unlock;
-	// }
-		
-
 unlock:
 	osal_mutex_unlock(this->net.lock);
 
@@ -1125,9 +1091,18 @@ static int net_recv(il_ecat_net_t *this, uint8_t subnode, uint16_t address, uint
 	}
 
 	/* Check if register received is the same that we asked for.  */
-	if ((hdr_l >> 4) != address) 
-	{
-		return IL_EWRONGREG;
+	uint16_t addr = (hdr_l & 0xFFF0) >> 4;
+	if (addr != address) {
+		uint32_t err;
+
+		err = __swap_be_32(*(uint32_t *)&frame[ECAT_MCB_DATA_POS]);
+		printf("\n =======================================================================================\n\n");
+		printf("Address error (Address asked -> %08x, Address frame -> %08x, err -> %08x)\n"
+			, address, addr, err);
+		printf("Frame -> %04x %04x %04x %04x %04x %04x %04x %04x\n", frame[0], frame[1], frame[2], frame[3], frame[4], frame[5], frame[6], frame[7]);
+		printf("\n =======================================================================================\n\n");
+		ilerr__set("Address error (NACK -> %08x)", err);
+		return 0;
 	}
 
 
