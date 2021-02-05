@@ -748,36 +748,14 @@ static int il_ecat_net__read(il_net_t *net, uint16_t id, uint8_t subnode, uint32
 
 	osal_mutex_lock(this->net.lock);
 	r = net_send(this, subnode, (uint16_t)address, NULL, 0, 0, net);
-	if (r < 0) {
+	if (r < 0)
 		goto unlock;
-	}
 
-	int num_retries = 0;
-	while (num_retries < NUMBER_OP_RETRIES)
-	{
-		uint16_t *monitoring_raw_data = NULL;
-		r = net_recv(this, subnode, (uint16_t)address, buf, sz, monitoring_raw_data, net);
-		if (r == IL_ETIMEDOUT || r == IL_EWRONGREG) 
-		{
-			++num_retries;
-			printf("Frame lost, retry %i\n", num_retries);
-		}
-		else 
-		{
-			break;
-		}
-	}
-
+	uint16_t *monitoring_raw_data = NULL;
+	r = net_recv(this, subnode, (uint16_t)address, buf, sz, monitoring_raw_data, net);
 	if (r < 0) 
-	{
-		if (r == IL_ETIMEDOUT || r == IL_EWRONGREG)
-		{
-			
-		}
 		goto unlock;
-	}
 		
-
 unlock:
 	osal_mutex_unlock(this->net.lock);
 
@@ -854,30 +832,13 @@ static int il_ecat_net__write(il_net_t *net, uint16_t id, uint8_t subnode, uint3
 	if (r < 0)
 		goto unlock;
 
-	int num_retries = 0;
-	while (num_retries < NUMBER_OP_RETRIES)
-	{
+	if (extended != 1) {
 		r = net_recv(this, subnode, (uint16_t)address, NULL, 0, NULL, NULL);
-		if (r == IL_ETIMEDOUT || r == IL_EWRONGREG) 
-		{
-			++num_retries;
-			printf("Frame lost, retry %i\n", num_retries);
-		}
-		else 
-		{
-			break;
+		if (r < 0) {
+			goto unlock;
 		}
 	}
 
-	if (r < 0) 
-	{
-		if (r == IL_ETIMEDOUT || r == IL_EWRONGREG)
-		{
-
-		}
-		goto unlock;
-	}
-	
 unlock:
 	osal_mutex_unlock(this->net.lock);
 
@@ -903,24 +864,9 @@ static int il_ecat_net__wait_write(il_net_t *net, uint16_t id, uint8_t subnode, 
 
 	Sleep(1000);
 
-	int num_retries = 0;
-	while (num_retries < NUMBER_OP_RETRIES)
-	{
-		r = net_recv(this, subnode, (uint16_t)address, NULL, 0, NULL, NULL);
-		if (r == IL_ETIMEDOUT || r == IL_EWRONGREG) 
-		{
-			++num_retries;
-			printf("Frame lost, retry %i\n", num_retries);
-		}
-		else 
-		{
-			break;
-		}
-	}
-	if (r < 0) 
-	{
+	r = net_recv(this, subnode, (uint16_t)address, NULL, 0, NULL, NULL);
+	if (r < 0)
 		goto unlock;
-	}
 
 unlock:
 	osal_mutex_unlock(this->net.lock);
@@ -974,6 +920,9 @@ static int net_send(il_ecat_net_t *this, uint8_t subnode, uint16_t address, cons
 
 		/* send frame */
 		if (extended == 1) {
+			osal_mutex_lock(this->net.lock);
+	
+			
 			uint16_t frame_size = sizeof(uint16_t) * ECAT_MCB_FRAME_SZ;
 			uint8_t extended_frame[1024];
 
@@ -1007,15 +956,17 @@ static int net_send(il_ecat_net_t *this, uint8_t subnode, uint16_t address, cons
 			error = udp_sendto(ptUdpPcb, p, &dstaddr, 1061);
 			pbuf_free(p);
 
+			osal_mutex_unlock(this->net.lock);
 			if (error < 0)
 				return ilerr__ser(error);
+
 		}
 		else {
 			int wkc = 0;
 			error = -1;
 			struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, 14, PBUF_RAM);
 			if (p != NULL) {
-				memcpy(p->payload, frame, 14);
+				memcpy(p->payload, frame, 14); 
 				error = udp_sendto(ptUdpPcb, p, &dstaddr, 1061);
 			}
 			pbuf_free(p);
@@ -1102,7 +1053,7 @@ static int net_recv(il_ecat_net_t *this, uint8_t subnode, uint16_t address, uint
 		printf("Frame -> %04x %04x %04x %04x %04x %04x %04x %04x\n", frame[0], frame[1], frame[2], frame[3], frame[4], frame[5], frame[6], frame[7]);
 		printf("\n =======================================================================================\n\n");
 		ilerr__set("Address error (NACK -> %08x)", err);
-		return 0;
+		return IL_EWRONGREG;
 	}
 
 
